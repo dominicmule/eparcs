@@ -1,27 +1,38 @@
 import { useState } from 'react';
-import { Layers, ZoomIn, ZoomOut, Plus } from 'lucide-react';
+import { Layers, ZoomIn, ZoomOut, MapPin, Square } from 'lucide-react';
 import type { Map } from 'mapbox-gl';
 import { useMapStore } from '../store/mapStore';
 import { DrawControl } from './DrawControl';
 
 interface MapControlsProps {
   map: Map | null;
+  onDrawModeChange: (mode: 'point' | 'polygon' | null) => void;
+  draw?: MapboxDraw | null;  // Add draw prop
 }
 
-export function MapControls({ map }: MapControlsProps) {
+export function MapControls({ map, onDrawModeChange, draw }: MapControlsProps) {
   const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(false);
-  const [isDrawModalOpen, setIsDrawModalOpen] = useState(false);
+  const [activeDrawMode, setActiveDrawMode] = useState<'point' | 'polygon' | null>(null);
   const { layers, incidentTypes, setLayer, setIncidentType } = useMapStore();
 
   const handleZoomIn = () => {
-    if (map) {
-      map.zoomIn();
-    }
+    if (map) map.zoomIn();
   };
 
   const handleZoomOut = () => {
-    if (map) {
-      map.zoomOut();
+    if (map) map.zoomOut();
+  };
+
+  const handleDrawModeChange = (mode: 'point' | 'polygon') => {
+    if (!draw) return;
+    
+    const newMode = activeDrawMode === mode ? null : mode;
+    setActiveDrawMode(newMode);
+    
+    if (newMode === null) {
+      draw.changeMode('simple_select');
+    } else {
+      draw.changeMode(newMode === 'point' ? 'draw_point' : 'draw_polygon');
     }
   };
 
@@ -51,15 +62,27 @@ export function MapControls({ map }: MapControlsProps) {
             <ZoomOut className="h-5 w-5" />
           </button>
           <button
-            onClick={() => setIsDrawModalOpen(true)}
-            className="p-2 hover:bg-gray-100 rounded transition-colors"
-            title="Add Incident or Zone"
+            onClick={() => handleDrawModeChange('point')}
+            className={`p-2 rounded transition-colors ${
+              activeDrawMode === 'point' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+            }`}
+            title="Add Incident"
           >
-            <Plus className="h-5 w-5" />
+            <MapPin className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => handleDrawModeChange('polygon')}
+            className={`p-2 rounded transition-colors ${
+              activeDrawMode === 'polygon' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+            }`}
+            title="Add Zone"
+          >
+            <Square className="h-5 w-5" />
           </button>
         </div>
       </div>
-      
+
+      {/* Layers Panel */}
       {isLayersPanelOpen && (
         <div className="absolute bottom-4 left-20 bg-white rounded-lg shadow-lg p-4 w-64">
           <h3 className="font-semibold mb-2">Map Layers</h3>
@@ -148,10 +171,12 @@ export function MapControls({ map }: MapControlsProps) {
         </div>
       )}
 
-      {isDrawModalOpen && (
+      {/* Draw Control */}
+      {activeDrawMode && map && (
         <DrawControl
           map={map}
-          onClose={() => setIsDrawModalOpen(false)}
+          mode={activeDrawMode}
+          onClose={() => setActiveDrawMode(null)}
         />
       )}
     </>
